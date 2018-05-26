@@ -21,6 +21,15 @@ let dirEntry = () => {
   };
 };
 
+let attributeEntry = () => {
+  return {
+    attrCount: 0,
+    parser: [
+      { count: 4, tag: 'attrCount', t: toUInt32 }
+    ]
+  };
+}
+
 let childrenDirEntry = () => {
   return {
     numChildren: 0,
@@ -98,19 +107,46 @@ let parser = (filepath) => new Promise((resolve,reject) => {
       delete object.parser;
     };
 
+    let lastStringPos = 0;
+
     let readString = (start) => {
       let pos = start;
       while (data[pos] != 0) {
         pos++;
       }
 
+      lastStringPos = pos;
+
       return data.slice(start,pos).toString();
+    };
+
+    let readString2 = (start) => {
+      let pos = start;
+      while (data[pos] != 0) {
+        pos++;
+      }
+
+      lastStringPos = pos;
+      console.log('s ' + start + ' p ' + pos);
+      return data.slice(start,pos);
     };
 
     let convertString = (b) => { let n = toUInt32(b); return readString(n); };
 
     let header = headerEntry();
     readChunk(header,0);
+
+    let attrs = attributeEntry();
+    readChunk(attrs,header.attributes);
+
+    let realAttrs = [];
+    for (let i = 0; i < attrs.attrCount; i++) {
+      let p = attributeEntry();
+      readChunk(p,header.attributes+4 + 4*i);
+      realAttrs.push(readString(p.attrCount));
+    }
+
+    header.attributes = realAttrs;
 
     let traverse = (start) => {
 
@@ -129,6 +165,7 @@ let parser = (filepath) => new Promise((resolve,reject) => {
         let metaEntry = metadataEntry();
         metaEntry.parser[1].t = convertString;
         readChunk(metaEntry,parent.metadata+4 + 8*i);
+        metaEntry.key = header.attributes[metaEntry.key];
         keys.push(metaEntry);
       }
 
