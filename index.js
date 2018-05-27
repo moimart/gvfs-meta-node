@@ -1,5 +1,10 @@
 const fs = require('fs');
 
+const MAGIC = "\xda\x1ameta";
+const MAGIC_LEN  = 6;
+const MAJOR_VERSION = 1;
+const MINOR_VERSION = 0;
+
 let toRealString = (b) => {return b.toString()};
 let toByte = (b) => {return b.readUInt8()};
 let toUInt32 = (b) => {return b.readUInt32BE()};
@@ -11,7 +16,7 @@ let dirEntry = () => {
     children: undefined,
     metadata: undefined,
     lastChanged: undefined,
-    realChildren: [],
+    path: '',
     parser: [
       { count: 4, tag: 'name', t: toUInt32 },
       { count: 4, tag: 'children', t: toUInt32 },
@@ -92,19 +97,33 @@ let parser = (filepath) => new Promise((resolve,reject) => {
       return reject('Cannot open file');
     }
 
+    let entries = {};
+
     let readChunk = (object, offset) => {
+
+      if (offset > data.length) {
+        return false;
+      }
+
       let _offset = offset;
       for (let i of object.parser) {
         limit = _offset + i.count;
         if (object.hasOwnProperty(i.tag)) {
-            object[i.tag] = data.slice(_offset, limit);
-            object[i.tag] = i.t(object[i.tag]);
+
+          if (_offset > data.length || limit > data.length) {
+            return false;
+          }
+
+          object[i.tag] = data.slice(_offset, limit);
+          object[i.tag] = i.t(object[i.tag]);
         }
 
         _offset += i.count;
       }
 
       delete object.parser;
+
+      return true;
     };
 
     let lastStringPos = 0;
@@ -136,6 +155,10 @@ let parser = (filepath) => new Promise((resolve,reject) => {
     let header = headerEntry();
     readChunk(header,0);
 
+    if (header.magic.length != MAGIC_LEN) {
+      return reject('wrong file');
+    }
+
     let attrs = attributeEntry();
     readChunk(attrs,header.attributes);
 
@@ -148,11 +171,13 @@ let parser = (filepath) => new Promise((resolve,reject) => {
 
     header.attributes = realAttrs;
 
-    let traverse = (start) => {
+    let traverse = (start, pathParent) => {
 
       let parent = dirEntry();
       parent.parser[0].t = convertString;
       readChunk(parent,start);
+
+      parent.path = pathParent + parent.name;
 
       let children = childrenDirEntry();
       readChunk(children,parent.children);
@@ -166,31 +191,40 @@ let parser = (filepath) => new Promise((resolve,reject) => {
         metaEntry.parser[1].t = convertString;
         readChunk(metaEntry,parent.metadata+4 + 8*i);
         metaEntry.key = header.attributes[metaEntry.key];
-        keys.push(metaEntry);
+        keys.push({ [metaEntry.key]: metaEntry.value });
       }
 
       parent.metadata = keys;
 
-      for (let i = 0; i < children.numChildren; i++) {
-        let child = traverse(parent.children+4 + 16*i);
-        parent.realChildren.push(child);
+      if (parent.metadata.length > 0) {
+        entries = Object.assign({},entries, { [parent.path]: parent.metadata });
       }
 
-      parent.children = parent.realChildren;
+      if (pathParent != '' && children.numChildren > 0) {
+        parent.path = parent.path + '/';
+      }
 
-      delete parent.realChildren;
+      let realChildren = [];
+      for (let i = 0; i < children.numChildren; i++) {
+        let child = traverse(parent.children+4 + 16*i,parent.path);
+        realChildren.push(child);
+      }
+
+      parent.children = realChildren;
 
       return parent;
-    }
+    };
 
-    header.root = traverse(header.root);
+    header.root = traverse(header.root,'');
 
-    resolve(header);
+    resolve({file:header,entries:entries});
   });
 });
 
+module.exports = parser;
+
 parser('./home')
-.then((header) => {
-  console.log(JSON.stringify(header,null,"\t"));
+.then((result) => {
+  console.log(JSON.stringify(result.entries,null,"\t"));
 })
 .catch((err) => console.log(err));
