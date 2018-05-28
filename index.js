@@ -222,9 +222,3 @@ let parser = (filepath) => new Promise((resolve,reject) => {
 });
 
 module.exports = parser;
-
-parser('./home')
-.then((result) => {
-  console.log(JSON.stringify(result.entries,null,"\t"));
-})
-.catch((err) => console.log(err));
