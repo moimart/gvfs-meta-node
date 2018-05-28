@@ -185,13 +185,13 @@ let parser = (filepath) => new Promise((resolve,reject) => {
       let metadata = metadataKeyEntry();
       readChunk(metadata,parent.metadata);
 
-      let keys = [];
+      let keys = {};
       for (let i = 0; i < metadata.numKeys; i++) {
         let metaEntry = metadataEntry();
         metaEntry.parser[1].t = convertString;
         readChunk(metaEntry,parent.metadata+4 + 8*i);
         metaEntry.key = header.attributes[metaEntry.key];
-        keys.push({ [metaEntry.key]: metaEntry.value });
+        keys = { [metaEntry.key]: metaEntry.value };
       }
 
       parent.metadata = keys;
