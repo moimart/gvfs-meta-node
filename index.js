@@ -191,7 +191,6 @@ let parser = (filepath) => new Promise((resolve,reject) => {
         metaEntry.parser[1].t = convertString;
         readChunk(metaEntry,parent.metadata+4 + 8*i);
         metaEntry.key = header.attributes[metaEntry.key];
-        console.log({ [metaEntry.key]: metaEntry.value });
         keys = Object.assign({},keys, { [metaEntry.key]: metaEntry.value });
       }
 
