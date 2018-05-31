@@ -1,6 +1,6 @@
 {
   "name": "gvfs-meta-node",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "GVFS Metadata Reader for Node",
   "main": "index.js",
   "scripts": {
@@ -10,6 +10,10 @@
     "gvfs",
     "metadata"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moimart/gvfs-meta-node.git"
+  },
   "author": "Moises Martinez",
   "license": "BSD-2-Clause",
   "dependencies": {}
